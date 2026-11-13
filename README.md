@@ -1,6 +1,6 @@
-# ifscope
+# infinitescope
 
-Infinite Flight's live multiplayer traffic and ATC on a STARS-style scope, live at https://ifscope.kyleboas.com.
+Infinite Flight's live multiplayer traffic and ATC on a STARS-style scope, live at https://infinitescope.kyleboas.com.
 
 It shows the Casual, Training and Expert servers' flights and controllers, from the
 [Infinite Flight Live API](https://infiniteflight.com/guide/developer-reference). It needs credentials in
@@ -37,8 +37,8 @@ It runs on [scope](https://github.com/kyleboas/scope), the shared scope server a
 
 ```
 git clone https://github.com/kyleboas/scope
-git clone https://github.com/kyleboas/ifscope
-python3 scope/server.py ifscope --port 8806     # Python 3.10+, standard library only
+git clone https://github.com/kyleboas/infinitescope
+python3 scope/server.py infinitescope --port 8806     # Python 3.10+, standard library only
 ```
 
 Then open http://localhost:8806. Set the Infinite Flight credentials above in the environment first.
@@ -47,11 +47,11 @@ On a server, keep them in [agent-secrets](https://github.com/kyleboas/agent-secr
 system service, which runs as its own user and gets only these secrets from systemd at start:
 
 ```
-sudo secret ifscope if-api-key                      # or if-client-id and if-client-secret
-sudo bash ifscope/deploy/install-service.sh         # again whenever the set of secrets changes
+sudo secret infinitescope if-api-key                      # or if-client-id and if-client-secret
+sudo bash infinitescope/deploy/install-service.sh         # again whenever the set of secrets changes
 ```
 
-Optional settings such as `IF_RPM=90` go in `/etc/ifscope.env`.
+Optional settings such as `IF_RPM=90` go in `/etc/infinitescope.env`.
 
 ## Files
 

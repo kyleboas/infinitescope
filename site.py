@@ -1,13 +1,13 @@
-"""ifscope (https://ifscope.kyleboas.com): Infinite Flight's live multiplayer traffic and ATC.
+"""infinitescope (https://infinitescope.kyleboas.com): Infinite Flight's live multiplayer traffic and ATC.
 
 Needs IF_API_KEY, or IF_CLIENT_ID / IF_CLIENT_SECRET, in the environment (see infinite_flight.py).
 """
 import infinite_flight as inf
 
 SITE = {
-    "name": "ifscope",
-    "title": "ifscope",
-    "url": "https://ifscope.kyleboas.com",
+    "name": "infinitescope",
+    "title": "infinitescope",
+    "url": "https://infinitescope.kyleboas.com",
     "port": 8806,
     "about": "Infinite Flight's live multiplayer traffic and ATC, on a STARS-style scope that zooms out to the globe",
     "src_links": {"Infinite Flight Live API": "https://infiniteflight.com/guide/developer-reference"},

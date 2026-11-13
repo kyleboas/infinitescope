@@ -1,4 +1,4 @@
-"""ifscope's data: Infinite Flight multiplayer traffic, ATC, ATIS and flight plans, from the Infinite Flight Live API (PublicApi v3, or a v2 API key).
+"""infinitescope's data: Infinite Flight multiplayer traffic, ATC, ATIS and flight plans, from the Infinite Flight Live API (PublicApi v3, or a v2 API key).
 
 Credentials (server side only), from systemd credentials (if-api-key, if-client-id, if-client-secret in
 $CREDENTIALS_DIRECTORY, see deploy/) or else the environment:
@@ -33,7 +33,7 @@ from scope.weather import Atis
 
 API = os.environ.get("IF_API_BASE", "https://api.infiniteflight.com")   # override only for local tests
 TOKEN_URL = API + "/auth/v2/connect/token"
-UA = {"User-Agent": "ifscope/1", "Accept": "application/json"}
+UA = {"User-Agent": "infinitescope/1", "Accept": "application/json"}
 LIVE_MAX_AGE = 50 * 60         # drop any cached live response this old, whether or not anyone asked again
 WORLDS = {1: "casual", 2: "training", 3: "expert"}
 FREQ = {0: "Ground", 1: "Tower", 2: "Unicom", 3: "Clearance", 4: "Approach", 5: "Departure", 6: "Center", 7: "ATIS"}
@@ -381,7 +381,7 @@ class Live:
 class Metar(Atis):
     """the real METAR only (no FAA D-ATIS: the ATIS shown is Infinite Flight's)"""
     DATIS = False
-    UA = {"User-Agent": "ifscope/1 (ifscope.kyleboas.com)"}
+    UA = {"User-Agent": "infinitescope/1 (infinitescope.kyleboas.com)"}
 
 
 class Traffic:

@@ -1,6 +1,6 @@
 # Notices
 
-ifscope's code is MIT-licensed (see LICENSE). It runs on [scope](https://github.com/kyleboas/scope), whose NOTICE covers the
+infinitescope's code is MIT-licensed (see LICENSE). It runs on [scope](https://github.com/kyleboas/scope), whose NOTICE covers the
 map, airport, procedure, ground-map and METAR data.
 
 **Infinite Flight data** (flights, controllers, ATIS, flight plans and routes) comes from the Infinite Flight Live API and
