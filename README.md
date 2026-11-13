@@ -52,6 +52,10 @@ sudo bash infinitescope/deploy/install-service.sh         # again whenever the s
 
 Optional settings such as `IF_RPM=90` go in `/etc/infinitescope.env`.
 
+The install also sets up `infinitescope-update.timer`: every minute it pulls `scope` and `infinitescope` from
+GitHub and restarts the site if either changed, so pushing to `main` deploys within about a minute
+(`journalctl -u infinitescope-update` shows each deploy).
+
 ## Files
 
 ```

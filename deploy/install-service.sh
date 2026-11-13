@@ -10,6 +10,8 @@
 # (LoadCredential) at start. The service runs as its own throwaway user (DynamicUser), not as the agent
 # user, sees only the scope and infinitescope checkouts read-only, and writes only /var/lib/infinitescope.
 # Optional settings (IF_RPM=90 with Pro) go in /etc/infinitescope.env.
+# It also installs infinitescope-update.timer, which pulls both checkouts every minute and restarts the site
+# when either changed, so pushing to GitHub deploys.
 set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo bash $0" >&2; exit 1; }
 
@@ -90,9 +92,53 @@ if [[ -f "$AGENT_HOME/.config/systemd/user/infinitescope.service" ]]; then
 fi
 rm -f "$AGENT_HOME/.config/infinitescope.env"
 
+# Auto-deploy: every minute, pull scope and infinitescope from GitHub (as the agent user, fast-forward only)
+# and restart the site when either checkout is on a new commit, so a push is all an update takes.
+UPDATER=/usr/local/lib/infinitescope-update.sh
+cat > "$UPDATER" <<SCRIPT
+#!/usr/bin/env bash
+set -uo pipefail
+for repo in $SCOPE $SITE; do
+  runuser -u $AGENT_USER -- git -C "\$repo" pull --ff-only -q || echo "pull failed in \$repo" >&2
+done
+now="\$(git -C $SCOPE rev-parse HEAD) \$(git -C $SITE rev-parse HEAD)"
+last="\$(cat /var/lib/infinitescope-update/revs 2>/dev/null)"
+if [[ "\$now" != "\$last" ]]; then
+  systemctl restart infinitescope.service && echo "\$now" > /var/lib/infinitescope-update/revs && echo "deployed \$now"
+fi
+SCRIPT
+chmod 0755 "$UPDATER"
+cat > /etc/systemd/system/infinitescope-update.service <<UNIT
+[Unit]
+Description=Pull scope and infinitescope from GitHub and restart infinitescope when they change
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=*
+StateDirectory=infinitescope-update
+ExecStart=$UPDATER
+UNIT
+cat > /etc/systemd/system/infinitescope-update.timer <<UNIT
+[Unit]
+Description=Check for infinitescope updates every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target
+UNIT
+chmod 0644 /etc/systemd/system/infinitescope-update.service /etc/systemd/system/infinitescope-update.timer
+
 systemctl daemon-reload
 systemctl enable infinitescope.service >/dev/null
+systemctl enable --now infinitescope-update.timer >/dev/null
 systemctl restart infinitescope.service
+mkdir -p /var/lib/infinitescope-update
+echo "$(git -c safe.directory='*' -C "$SCOPE" rev-parse HEAD) $(git -c safe.directory='*' -C "$SITE" rev-parse HEAD)" > /var/lib/infinitescope-update/revs
 for _ in $(seq 1 30); do
   curl -fsS "http://127.0.0.1:$PORT/api/live/servers" 2>/dev/null && { echo; echo "infinitescope is up on $PORT"; exit 0; }
   sleep 1
