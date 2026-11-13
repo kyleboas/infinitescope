@@ -17,8 +17,7 @@ Everything [livescope](https://github.com/kyleboas/livescope) does works the sam
 - **Servers** (header): Casual / Training / Expert with their pilot counts.
 - **All flights:** each server's whole flight list comes in one request, so the globe shows every
   flight, refreshed every 15 s.
-- **ATC on duty:** airports with controllers get a cyan box and their facilities (C G T A D). The
-  airport card lists the controllers, any Center within 400 nm, the in-game ATIS and the real METAR.
+- **ATC on duty:** the airport card lists the controllers, any Center within 400 nm, the in-game ATIS and the real METAR.
 - **Flight plans:** each aircraft's origin and destination come from its filed plan, so ARR / DEP use
   that first. Selecting an aircraft shows its pilot, livery and full plan (dashed). On Expert and
   Training it also shows the route it has flown (blue), from Infinite Flight.
