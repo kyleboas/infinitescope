@@ -43,11 +43,22 @@ python3 scope/server.py ifscope --port 8806     # Python 3.10+, standard library
 
 Then open http://localhost:8806. Set the Infinite Flight credentials above in the environment first.
 
+On a server, keep them in [agent-secrets](https://github.com/kyleboas/agent-secrets) instead and install the
+system service, which runs as its own user and gets only these secrets from systemd at start:
+
+```
+sudo secret ifscope if-api-key                      # or if-client-id and if-client-secret
+sudo bash ifscope/deploy/install-service.sh         # again whenever the set of secrets changes
+```
+
+Optional settings such as `IF_RPM=90` go in `/etc/ifscope.env`.
+
 ## Files
 
 ```
 site.py              the site's settings and which providers it uses
 infinite_flight.py   Infinite Flight Live API client: flights, ATC, ATIS, flight plans, under IF's API rules
+deploy/              system service install (credentials from agent-secrets via systemd LoadCredential)
 ```
 
 Not affiliated with Infinite Flight. Data: [NOTICE.md](NOTICE.md). MIT ([LICENSE](LICENSE)).

@@ -1,6 +1,7 @@
 """ifscope's data: Infinite Flight multiplayer traffic, ATC, ATIS and flight plans, from the Infinite Flight Live API (PublicApi v3, or a v2 API key).
 
-Credentials (environment, server side only):
+Credentials (server side only), from systemd credentials (if-api-key, if-client-id, if-client-secret in
+$CREDENTIALS_DIRECTORY, see deploy/) or else the environment:
     IF_API_KEY                         a Live API v2 key (Bearer header, https://api.infiniteflight.com/public/v2), or
     IF_CLIENT_ID / IF_CLIENT_SECRET    a PublicApi v3 Confidential client with server-to-server access (approved by IF)
     IF_RPM                             requests per minute to allow ourselves (default 25: under the free limit of 30;
@@ -43,13 +44,25 @@ class ApiError(Exception):
     pass
 
 
+def credential(name):
+    """A secret from a systemd credential file (LoadCredential=<name>), else from the environment variable."""
+    d = os.environ.get("CREDENTIALS_DIRECTORY")
+    if d:
+        try:
+            with open(os.path.join(d, name), encoding="utf-8") as f:
+                return f.read().strip()
+        except OSError:
+            pass
+    return os.environ.get(name.upper().replace("-", "_"), "").strip()
+
+
 class Client:
     """Authenticated GETs within a requests-per-minute budget (one sliding minute, shared by everything)."""
 
     def __init__(self):
-        self.key = os.environ.get("IF_API_KEY", "").strip()
-        self.cid = os.environ.get("IF_CLIENT_ID", "").strip()
-        self.secret = os.environ.get("IF_CLIENT_SECRET", "").strip()
+        self.key = credential("if-api-key")
+        self.cid = credential("if-client-id")
+        self.secret = credential("if-client-secret")
         self.rpm = max(5, int(os.environ.get("IF_RPM", "25")))
         self.base = API + ("/public/v2" if self.key and not self.cid else "/public/v3")
         self.lock = threading.Lock()
