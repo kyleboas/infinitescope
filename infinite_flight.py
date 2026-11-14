@@ -340,7 +340,34 @@ class Live:
             return [{"icao": x.get("airportName") or "", "type": FREQ.get(x.get("type"), "ATC"), "user": x.get("username") or "",
                      "lat": x.get("latitude"), "lon": x.get("longitude"), "since": parse_t(x.get("startTime"))} for x in r or []]
         v, t, err = self.atc.get(s["id"], f"/sessions/{s['id']}/atc", conv)
-        return {"ok": v is not None, "err": err, "t": t, "atc": v or []}
+        return {"ok": v is not None, "err": err, "t": t, "atc": v or [], "airports": self.atc_airports(s, v or [])}
+
+    def atc_airports(self, s, atc):
+        """the airports with ATC open, each with its inbound flights (by filed flight plan), nearest first"""
+        staffed = {}
+        for f in atc:
+            if f["type"] != "Center" and f["icao"]:
+                staffed.setdefault(f["icao"].upper(), []).append(f["type"])
+        if not staffed:
+            return []
+        dest = self.status(s)["dest"]
+        _, acs, _, _ = self.flight_list(s["key"])
+        inb = {}
+        for a in acs:
+            d = (dest.get(a["id"]) or "").upper()
+            if d in staffed:
+                inb.setdefault(d, []).append(a)
+        out = []
+        for icao, types in staffed.items():
+            ap = self.airports.by_id.get(icao)
+            rows = []
+            for a in inb.get(icao, []):
+                rows.append({"id": a["id"], "cs": a["cs"], "type": a["type"], "alt": a["alt"], "gs": a["gs"], "ground": a["ground"],
+                             "lat": a["lat"], "lon": a["lon"], "nm": round(gc_nm(ap[5], ap[6], a["lat"], a["lon"])) if ap else None})
+            rows.sort(key=lambda r: r["nm"] if r["nm"] is not None else 1e9)
+            out.append({"icao": icao, "ap": ap[:9] if ap else None, "atc": sorted(set(types), key=types.index), "inbound": rows})
+        out.sort(key=lambda o: (-len(o["inbound"]), o["icao"]))
+        return out
 
     def airport_atis(self, key, icao):
         s, _ = self.session(key)
