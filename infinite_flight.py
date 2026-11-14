@@ -12,7 +12,7 @@ are built in here:
   - one in-memory cache per request, replaced on refresh, never written to disk or logged, and dropped
     50 minutes after it was fetched (the rule is 1 hour);
   - minimum intervals: sessions 10 min, flights 15 s, ATC and world status 60 s, a flight's plan or route
-    60 s and only when someone selects it, a pilot's stats 5 min and only when someone selects their flight,
+    60 s and only when someone selects it, its logbook entry (user data) 5 min and only on selection,
     ATIS 60 s and only for the airport someone opens, reference data (aircraft and liveries) 60 min;
   - nothing is fetched unless a page asks for it, and the page stops asking after 15 minutes without
     user input, so polling stops when nobody is watching;
@@ -38,9 +38,7 @@ LIVE_MAX_AGE = 50 * 60         # drop any cached live response this old, whether
 WORLDS = {1: "casual", 2: "training", 3: "expert"}
 FREQ = {0: "Ground", 1: "Tower", 2: "Unicom", 3: "Clearance", 4: "Approach", 5: "Departure", 6: "Center", 7: "ATIS"}
 PILOT_STATES = {1: "away in flight", 2: "away, parked", 3: "app in background"}
-ATC_RANKS = {0: "Observer", 1: "Trainee", 2: "Apprentice", 3: "Specialist", 4: "Officer", 5: "Supervisor", 6: "Recruiter", 7: "Manager"}
-ROLES = {1: "Infinite Flight staff", 2: "moderator", 64: "IFATC"}
-FORUM = "https://community.infiniteflight.com"
+PROC_TYPES = {0: "SID", 1: "STAR", 2: "approach", 3: "track"}
 UUID = re.compile(r"[0-9a-fA-F-]{36}")
 
 
@@ -113,16 +111,13 @@ class Client:
             self.sent.append(now)
             return True
 
-    def get(self, path, reserve=0, body=None):
-        """GET path, or POST body (JSON) to it"""
+    def get(self, path, reserve=0):
         if not self.configured:
             raise ApiError("no API key")
         if not self.budget(reserve):
             raise ApiError("busy")
         try:
-            data = json.dumps(body).encode() if body is not None else None
-            req = urllib.request.Request(self.base + path, data=data, headers={**UA, **self.auth(),
-                                         **({"Content-Type": "application/json"} if data else {})})
+            req = urllib.request.Request(self.base + path, headers={**UA, **self.auth()})
             with urllib.request.urlopen(req, timeout=12) as r:
                 d = json.load(r)
         except urllib.error.HTTPError as e:
@@ -156,7 +151,7 @@ class Cached:
         self.data = {}             # key -> (time.time() fetched, value)
         self.locks, self.lock = {}, threading.Lock()
 
-    def get(self, key, path, convert=lambda x: x, body=None):
+    def get(self, key, path, convert=lambda x: x):
         with self.lock:
             lk = self.locks.setdefault(key, threading.Lock())
         with lk:
@@ -164,7 +159,7 @@ class Cached:
             if hit and time.time() - hit[0] < self.every:
                 return hit[1], hit[0], ""
             try:
-                v = convert(self.c.get(path, self.reserve, body))
+                v = convert(self.c.get(path, self.reserve))
             except ApiError as e:
                 return (hit[1], hit[0], str(e)) if hit else (None, 0, str(e))
             self.data[key] = (time.time(), v)
@@ -228,8 +223,7 @@ class Live:
         self.plans = Cached(self.c, 60)
         self.routes = Cached(self.c, 60)
         self.atis = Cached(self.c, 60)
-        self.users = Cached(self.c, 300)                      # a pilot's stats: user data, 5 min minimum
-        self.avatars, self.av_lock = {}, threading.Lock()     # forum username -> (time, avatar URL or ""): the forum's, not IF data
+        self.logs = Cached(self.c, 300)                       # a flight's logbook entry: user data, 5 min minimum
         self.liveries = Cached(self.c, 3600)
         self.conv = {}             # (server key, fetch time) -> converted flight list, so it's built once per fetch
         threading.Thread(target=self.janitor, daemon=True).start()
@@ -237,7 +231,7 @@ class Live:
     def janitor(self):
         while True:
             time.sleep(60)
-            for c in (self.sessions, self.flights, self.world, self.atc, self.plans, self.routes, self.atis, self.users):
+            for c in (self.sessions, self.flights, self.world, self.atc, self.plans, self.routes, self.atis, self.logs):
                 c.expire(LIVE_MAX_AGE)
             self.liveries.expire(2 * 3600)
             for k in [k for k in self.conv if time.time() - k[1] > LIVE_MAX_AGE]:
@@ -316,6 +310,7 @@ class Live:
                         "type": type_code(ac), "acName": ac, "livery": liv, "user": f.get("username") or "",
                         "vo": f.get("virtualOrganization") or "", "away": (f.get("pilotState") or 0) != 0,
                         "state": PILOT_STATES.get(f.get("pilotState") or 0, ""), "uid": f.get("userId") or "",
+                        "head": round(f.get("heading") or 0),
                         "route": self.route_of(st, f["flightId"]), "reg": "", "sq": "", "emer": "", "hex": "", "cat": ""})
         return out
 
@@ -392,11 +387,12 @@ class Live:
             return {"ok": False}
 
         def plan(r):
-            pts = []
+            pts, procs = [], []
 
             def walk(items, proc):
                 for it in items or []:
                     if it.get("children"):
+                        procs.append([it.get("name") or it.get("identifier") or "", PROC_TYPES.get(it.get("type"), "procedure")])
                         walk(it["children"], it.get("name") or proc)
                         continue
                     loc = it.get("location") or {}
@@ -405,63 +401,40 @@ class Live:
                         continue
                     pts.append([it.get("name") or it.get("identifier") or "", round(la, 5), round(lo, 5), it.get("altitude", -1), proc or ""])
             walk((r or {}).get("flightPlanItems"), "")
-            return {"ifr": (r or {}).get("flightPlanType") == 1, "pts": pts}
+            alts = [p[3] for p in pts if isinstance(p[3], (int, float)) and p[3] > 0]
+            return {"ifr": (r or {}).get("flightPlanType") == 1, "pts": pts, "procs": procs,
+                    "cruise": max(alts) if alts else None, "updated": parse_t((r or {}).get("lastUpdate"))}
         p, _, perr = self.plans.get((s["id"], fid), f"/sessions/{s['id']}/flights/{fid}/flightplan", plan)
-        out = {"ok": True, "plan": p, "planErr": perr, **self.pilot(key, fid)}
+        out = {"ok": True, "plan": p, "planErr": perr, **self.logbook(key, fid)}
         if s["key"] in ("expert", "training"):      # IF keeps flown routes only on these two
             r, _, rerr = self.routes.get((s["id"], fid), f"/sessions/{s['id']}/flights/{fid}/route",
-                                         lambda r: [[round(x["latitude"], 4), round(x["longitude"], 4), round(x.get("altitude") or 0)] for x in r or []])
+                                         lambda r: [[round(x["latitude"], 4), round(x["longitude"], 4), round(x.get("altitude") or 0),
+                                                     round(x.get("groundSpeed") or 0), parse_t(x.get("date"))] for x in r or []])
             out["track"], out["trackErr"] = r, rerr
         return out
 
 
-    # ---------------------------------------------------------------- the pilot of one flight
-    def pilot(self, key, fid):
-        """{"pilot": the flight's pilot's stats (POST /users) with their forum avatar, "pilotErr": why not}"""
+    # ---------------------------------------------------------------- one flight's logbook entry
+    def logbook(self, key, fid):
+        """{"log": the flight's entry in its pilot's logbook (GET /users/{userId}/flights/{flightId}), "logErr": why not}"""
         _, acs, _, _ = self.flight_list(key)
         a = next((x for x in acs if x["id"] == fid), None)
         if not a or not UUID.fullmatch(a["uid"]):
-            return {"pilot": None, "pilotErr": "flight not in the list"}
+            return {"log": None, "logErr": "flight not in the list"}
 
-        def conv(r):
-            u = (r or [{}])[0]
-            lv = u.get("violationCountByLevel") or {}
-            return {"user": u.get("discourseUsername") or "", "vo": u.get("virtualOrganization") or "", "hash": u.get("hash") or "",
-                    "grade": u.get("grade"), "xp": round(u.get("xp") or 0), "min": round(u.get("flightTime") or 0),
-                    "landings": u.get("landingCount") or 0, "flights": u.get("onlineFlights") or 0,
-                    "viol": [lv.get("level1") or 0, lv.get("level2") or 0, lv.get("level3") or 0],
-                    "atcOps": u.get("atcOperations") or 0, "atcRank": ATC_RANKS.get(u.get("atcRank"), "") if u.get("atcRank") is not None else "",
-                    "roles": [ROLES[r] for r in u.get("roles") or [] if r in ROLES]}
-        p, _, err = self.users.get(a["uid"], "/users", conv, body={"userIds": [a["uid"]]})
-        if p:
-            p = {**p, "avatar": self.avatar(p["user"] or a["user"])}
-        return {"pilot": p, "pilotErr": err}
-
-    def avatar(self, name):
-        """the pilot's avatar on the Infinite Flight Community forum (Discourse), 120 px; kept a day, a miss 10 min"""
-        if not name or not re.fullmatch(r"[\w.\-]{1,60}", name):
-            return ""
-        k = name.lower()
-        with self.av_lock:
-            hit = self.avatars.get(k)
-        if hit and time.time() - hit[0] < (86400 if hit[1] else 600):
-            return hit[1]
-        url = ""
-        try:
-            req = urllib.request.Request(f"{FORUM}/u/{urllib.parse.quote(name)}.json", headers={**UA, "User-Agent": "infinitescope/1 (infinitescope.kyleboas.com)"})
-            with urllib.request.urlopen(req, timeout=5) as r:
-                t = (json.load(r).get("user") or {}).get("avatar_template") or ""
-            if t.startswith("/") and "{size}" in t:
-                url = FORUM + t.replace("{size}", "120")
-            elif t.startswith("https://") and "{size}" in t:
-                url = t.replace("{size}", "120")
-        except Exception:  # noqa: BLE001 - no forum account, or the forum is down: no picture
-            pass
-        with self.av_lock:
-            if len(self.avatars) > 5000:
-                self.avatars.clear()
-            self.avatars[k] = (time.time(), url)
-        return url
+        def conv(f):
+            f = f or {}
+            ls = (f.get("landingStats") or [])[-1:] or [{}]
+            l = ls[0]
+            return {"min": f.get("totalTime"), "day": f.get("dayTime"), "night": f.get("nightTime"), "landings": f.get("landingCount"),
+                    "fuel": f.get("fuelUsedKg"), "xp": f.get("xp"), "from": f.get("originAirport") or "", "to": f.get("destinationAirport") or "",
+                    "since": parse_t(f.get("created")),
+                    "viol": [[v.get("level"), v.get("type") or v.get("description") or ""] for v in f.get("violations") or []],
+                    "landing": {"g": l.get("maxGForce"), "vs": l.get("verticalSpeed"), "ias": l.get("indicatedAirspeed"),
+                                "cl": l.get("centerlineDistance"), "tdz": l.get("distanceFrom1kftMarker"), "roll": l.get("groundRollDistance"),
+                                "t": parse_t(l.get("timestamp"))} if l else None}
+        v, _, err = self.logs.get((a["uid"], fid), f"/users/{a['uid']}/flights/{fid}", conv)
+        return {"log": v, "logErr": err}
 
 
 class Metar(Atis):

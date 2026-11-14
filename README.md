@@ -23,17 +23,19 @@ no aircraft details, ACARS, boats, timelapses or flight history (Infinite Flight
 - **Flight plans:** each aircraft's origin and destination come from its filed plan, so ARR / DEP use
   that first. Selecting an aircraft shows its pilot, livery and full plan (dashed). On Expert and
   Training it also shows the route it has flown (blue), from Infinite Flight.
-- **Pilot:** the aircraft card also shows the pilot's Infinite Flight stats (grade, XP, flight time, online flights,
-  landings, violations by level, ATC rank and operations, staff / moderator / IFATC roles), fetched when you select
-  them and kept 5 minutes, and their Infinite Flight Community avatar, linked to their forum profile. Away pilots say
-  whether they're away in flight, parked or have the app in the background.
+- **Aircraft and flight card:** selecting an aircraft (zoomed out, clicking a dot zooms in on it) shows its
+  aircraft, livery, type and pilot; altitude, vertical speed, ground speed, track and heading; origin and destination,
+  IFR / VFR, SID, STAR, approach and oceanic track from the plan, planned cruise, the next fix, the distance to go
+  along the plan and an ETA at its present speed; on Expert and Training the distance flown since its first report
+  and its highest altitude; and its logbook entry (flight time, landings, fuel used, XP, last landing's touchdown
+  rate, g and centreline offset, violations). Away pilots say whether they're away in flight, parked or in the background.
 - **Weather** (Layers, off by default): the real world's SIGMETs, G-AIRMETs, CWAs and PIREPs
   (`scope/hazards.py`, from aviationweather.gov), since Infinite Flight flies real-world weather.
 - **Infinite Flight's API rules** ([usage and data rules](https://infiniteflight.com/guide/developer-reference/api-rules/usage-and-data-rules))
   are built in (`infinite_flight.py`):
   - one shared in-memory cache, never written to disk or logged, and dropped after 50 minutes;
-  - minimum intervals: flights 15 s, ATC and world status 60 s, a pilot's stats 5 min, sessions 10 min,
-    aircraft/liveries 60 min; a flight's plan, route or pilot only when someone selects it;
+  - minimum intervals: flights 15 s, ATC and world status 60 s, a flight's logbook entry 5 min,
+    sessions 10 min, aircraft/liveries 60 min; a flight's plan, route or logbook only when someone selects it;
   - a 429 pauses all requests for its `Retry-After`;
   - history trails cover only the last 30 seconds and live only in the page's memory, never on the server;
   - the page stops polling while hidden and after 15 minutes without input.
