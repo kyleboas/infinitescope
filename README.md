@@ -27,7 +27,7 @@ Everything [livescope](https://github.com/kyleboas/livescope) does works the sam
   - minimum intervals: flights 15 s, ATC and world status 60 s, sessions 10 min, aircraft/liveries
     60 min; a flight's plan or route only when someone selects it;
   - a 429 pauses all requests for its `Retry-After`;
-  - no history trails, which would be collected positions;
+  - history trails cover only the last 30 seconds and live only in the page's memory, never on the server;
   - the page stops polling while hidden and after 15 minutes without input.
 
 ## Run

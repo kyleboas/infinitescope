@@ -12,9 +12,9 @@ SITE = {
     "about": "Infinite Flight's live multiplayer traffic and ATC, on a STARS-style scope that zooms out to the globe",
     "src_links": {"Infinite Flight Live API": "https://infiniteflight.com/guide/developer-reference"},
     "world_link": ["https://infiniteflight.com", "Infinite Flight"],
-    # Infinite Flight's API rules: no position histories (so no trails), stop after 15 min without input,
-    # flight lists at most every 15 s (so reports can be that old)
-    "no_history": True, "idle_min": 15, "stale_s": 45, "poll_ms": 3000, "world_ms": 15000,
+    # Infinite Flight's API rules: trails only from the last 30 s, kept in the page's memory (never on the server),
+    # stop after 15 min without input, flight lists at most every 15 s (so reports can be that old)
+    "hist_s": 30, "idle_min": 15, "stale_s": 45, "poll_ms": 3000, "world_ms": 15000,
     "start": None,                          # no airport in the URL: open on the whole globe
     "metar_label": "REAL-WORLD METAR",
 }
