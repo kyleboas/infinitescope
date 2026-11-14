@@ -3,6 +3,8 @@
 infinitescope's code is MIT-licensed (see LICENSE). It runs on [scope](https://github.com/kyleboas/scope), whose NOTICE covers the
 map, airport, procedure, ground-map, METAR and weather-layer data.
 
-**Infinite Flight data** (flights, controllers, ATIS, flight plans and routes) comes from the Infinite Flight Live API and
+**Infinite Flight data** (flights, controllers, ATIS, flight plans, routes and pilots' stats) comes from the Infinite Flight Live API and
 belongs to Infinite Flight. It is fetched at run time, kept only in memory under Infinite Flight's API usage rules, and not
 stored. Not affiliated with Infinite Flight.
+
+Pilots' avatars are loaded from the Infinite Flight Community forum (<https://community.infiniteflight.com>) by the browser.
