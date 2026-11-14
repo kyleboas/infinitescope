@@ -224,6 +224,7 @@ class Live:
         self.routes = Cached(self.c, 60)
         self.atis = Cached(self.c, 60)
         self.logs = Cached(self.c, 300)                       # a flight's logbook entry: user data, 5 min minimum
+        self.log_miss = {}                                    # (user, flight) -> when the API last had no entry (404): asked again after 5 min
         self.liveries = Cached(self.c, 3600)
         self.conv = {}             # (server key, fetch time) -> converted flight list, so it's built once per fetch
         threading.Thread(target=self.janitor, daemon=True).start()
@@ -433,7 +434,14 @@ class Live:
                     "landing": {"g": l.get("maxGForce"), "vs": l.get("verticalSpeed"), "ias": l.get("indicatedAirspeed"),
                                 "cl": l.get("centerlineDistance"), "tdz": l.get("distanceFrom1kftMarker"), "roll": l.get("groundRollDistance"),
                                 "t": parse_t(l.get("timestamp"))} if l else None}
-        v, _, err = self.logs.get((a["uid"], fid), f"/users/{a['uid']}/flights/{fid}", conv)
+        k = (a["uid"], fid)
+        if time.time() - self.log_miss.get(k, 0) < 300:
+            return {"log": None, "logErr": "no logbook entry"}
+        v, _, err = self.logs.get(k, f"/users/{a['uid']}/flights/{fid}", conv)
+        if v is None and err.startswith("HTTP 404"):
+            if len(self.log_miss) > 5000:
+                self.log_miss.clear()
+            self.log_miss[k] = time.time()
         return {"log": v, "logErr": err}
 
 
