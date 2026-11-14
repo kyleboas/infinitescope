@@ -12,7 +12,9 @@ the environment, server side only:
 - `IF_RPM` (optional): requests per minute to allow, 25 by default. The limit is 30, or 100 when the
   account that owns the key has Pro.
 
-Everything [livescope](https://github.com/kyleboas/livescope) does works the same, plus:
+The shared scope client works as on [livescope](https://github.com/kyleboas/livescope) (procedures, ground maps,
+FAA charts, map backgrounds, search, filters), except what needs ADS-B data or keeping traffic on the server:
+no aircraft details, ACARS, boats, timelapses or flight history (Infinite Flight's rules forbid storing its data). Plus:
 
 - **Servers** (header): Casual / Training / Expert with their pilot counts.
 - **All flights:** each server's whole flight list comes in one request, so the globe shows every
@@ -21,6 +23,8 @@ Everything [livescope](https://github.com/kyleboas/livescope) does works the sam
 - **Flight plans:** each aircraft's origin and destination come from its filed plan, so ARR / DEP use
   that first. Selecting an aircraft shows its pilot, livery and full plan (dashed). On Expert and
   Training it also shows the route it has flown (blue), from Infinite Flight.
+- **Weather** (Layers, off by default): the real world's SIGMETs, G-AIRMETs, CWAs and PIREPs
+  (`scope/hazards.py`, from aviationweather.gov), since Infinite Flight flies real-world weather.
 - **Infinite Flight's API rules** ([usage and data rules](https://infiniteflight.com/guide/developer-reference/api-rules/usage-and-data-rules))
   are built in (`infinite_flight.py`):
   - one shared in-memory cache, never written to disk or logged, and dropped after 50 minutes;

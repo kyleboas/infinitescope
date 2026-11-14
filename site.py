@@ -3,6 +3,7 @@
 Needs IF_API_KEY, or IF_CLIENT_ID / IF_CLIENT_SECRET, in the environment (see infinite_flight.py).
 """
 import infinite_flight as inf
+from scope.hazards import Hazards
 
 SITE = {
     "name": "infinitescope",
@@ -22,5 +23,6 @@ SITE = {
 
 def providers(airports=None):
     live = inf.Live(airports)
+    # wx: real-world SIGMETs, G-AIRMETs, CWAs and PIREPs (Infinite Flight flies real-world weather); not IF data
     return {"traffic": inf.Traffic(live), "world": inf.World(live), "atis": inf.IFAtis(live), "max_nm": 400,
-            "endpoints": inf.endpoints(live), "features": ["servers", "atc", "flight"]}
+            "endpoints": {**inf.endpoints(live), "wx": Hazards().get}, "features": ["servers", "atc", "flight", "wx"]}
