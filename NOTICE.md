@@ -6,3 +6,7 @@ map, airport, procedure, ground-map, METAR and weather-layer data.
 **Infinite Flight data** (flights, controllers, ATIS, flight plans, routes and logbook entries) comes from the Infinite Flight Live API and
 belongs to Infinite Flight. It is fetched at run time, kept only in memory under Infinite Flight's API usage rules, and not
 stored. Not affiliated with Infinite Flight.
+
+**Aircraft photos** in the aircraft card are from Wikimedia Commons (<https://commons.wikimedia.org>), each under its own
+licence (shown with the photographer's name under the photo and on its Commons page, which the photo links to). They show
+the same type and livery, not the aircraft flying in Infinite Flight.

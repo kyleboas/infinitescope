@@ -223,6 +223,7 @@ class Live:
         self.plans = Cached(self.c, 60)
         self.routes = Cached(self.c, 60)
         self.atis = Cached(self.c, 60)
+        self.photos = Photos()
         self.logs = Cached(self.c, 300)                       # a flight's logbook entry: user data, 5 min minimum
         self.log_miss = {}                                    # (user, flight) -> when the API last had no entry (404): asked again after 5 min
         self.liveries = Cached(self.c, 3600)
@@ -406,7 +407,7 @@ class Live:
             return {"ifr": (r or {}).get("flightPlanType") == 1, "pts": pts, "procs": procs,
                     "cruise": max(alts) if alts else None, "updated": parse_t((r or {}).get("lastUpdate"))}
         p, _, perr = self.plans.get((s["id"], fid), f"/sessions/{s['id']}/flights/{fid}/flightplan", plan)
-        out = {"ok": True, "plan": p, "planErr": perr, **self.logbook(key, fid)}
+        out = {"ok": True, "plan": p, "planErr": perr, **self.logbook(key, fid), "photo": self.photo_of(key, fid)}
         if s["key"] in ("expert", "training"):      # IF keeps flown routes only on these two
             r, _, rerr = self.routes.get((s["id"], fid), f"/sessions/{s['id']}/flights/{fid}/route",
                                          lambda r: [[round(x["latitude"], 4), round(x["longitude"], 4), round(x.get("altitude") or 0),
@@ -414,6 +415,11 @@ class Live:
             out["track"], out["trackErr"] = r, rerr
         return out
 
+
+    def photo_of(self, key, fid):
+        _, acs, _, _ = self.flight_list(key)
+        a = next((x for x in acs if x["id"] == fid), None)
+        return self.photos.get(a["acName"], a["livery"]) if a else None
 
     # ---------------------------------------------------------------- one flight's logbook entry
     def logbook(self, key, fid):
@@ -443,6 +449,62 @@ class Live:
                 self.log_miss.clear()
             self.log_miss[k] = time.time()
         return {"log": v, "logErr": err}
+
+
+class Photos:
+    """A photo of the same aircraft type in the same livery, from Wikimedia Commons (keyless, openly licensed): Infinite
+    Flight has no pictures and its aircraft have no registration or ICAO address to look a real one up by. Not IF data;
+    kept a week per aircraft and livery (a miss a day)."""
+    API = "https://commons.wikimedia.org/w/api.php?"
+    SKIP = re.compile(r"^(generic|infinite flight|n/?a|none|)$", re.I)
+
+    def __init__(self):
+        self.data, self.lock = {}, threading.Lock()
+
+    def search(self, q):
+        u = self.API + urllib.parse.urlencode({"action": "query", "format": "json", "generator": "search", "gsrnamespace": 6,
+                                               "gsrsearch": q + " filetype:bitmap", "gsrlimit": 5, "prop": "imageinfo",
+                                               "iiprop": "url|extmetadata", "iiurlwidth": 640})
+        with urllib.request.urlopen(urllib.request.Request(u, headers={**UA, "User-Agent": "infinitescope/1 (https://infinitescope.kyleboas.com)"}), timeout=6) as r:
+            pages = (json.load(r).get("query") or {}).get("pages") or {}
+        return sorted(pages.values(), key=lambda p: p.get("index", 99))
+
+    def get(self, ac, livery):
+        if not ac:
+            return None
+        k = (ac, livery)
+        with self.lock:
+            hit = self.data.get(k)
+        if hit and time.time() - hit[0] < (7 * 86400 if hit[1] else 86400):
+            return hit[1]
+        liv = re.sub(r"\s+-\s+.*$", "", livery or "").strip()        # "United Airlines - 2019" -> "United Airlines"
+        liv = "" if self.SKIP.match(liv) else liv
+        out = None
+        try:
+            for q, matched in ([(f'"{liv}" {ac}', True)] if liv else []) + [(ac, False)]:
+                for pg in self.search(q):
+                    ii = (pg.get("imageinfo") or [{}])[0]
+                    src = ii.get("thumburl") or ""
+                    if not src.startswith("https://"):
+                        continue
+                    md = ii.get("extmetadata") or {}
+                    val = lambda n: re.sub(r"<[^>]+>", "", (md.get(n) or {}).get("value") or "").strip()
+                    title = pg.get("title", "")
+                    # the livery counts only when the file's name says the airline (searches also match descriptions)
+                    same = matched and liv.split()[0].lower() in title.lower()
+                    out = {"src": src, "link": ii.get("descriptionurl") or "", "by": val("Artist")[:80] or "unknown",
+                           "license": val("LicenseShortName")[:40], "credit": "Wikimedia Commons",
+                           "what": ("an " if ac[0].upper() in "AEIOU" else "a ") + ac + (f" in {liv} colours" if same else "") + ", not this aircraft"}
+                    break
+                if out and (not liv or out["what"].count(" colours")):
+                    break
+        except Exception:  # noqa: BLE001 - Commons down: no photo this time
+            return hit[1] if hit else None
+        with self.lock:
+            if len(self.data) > 3000:
+                self.data.clear()
+            self.data[k] = (time.time(), out)
+        return out
 
 
 class Metar(Atis):

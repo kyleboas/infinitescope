@@ -29,6 +29,8 @@ no aircraft details, ACARS, boats, timelapses or flight history (Infinite Flight
   along the plan and an ETA at its present speed; on Expert and Training the distance flown since its first report
   and its highest altitude; and its logbook entry (flight time, landings, fuel used, XP, last landing's touchdown
   rate, g and centreline offset, violations). Away pilots say whether they're away in flight, parked or in the background.
+  On top, a photo of the same aircraft type in the same livery from Wikimedia Commons (Infinite Flight has no pictures,
+  and its aircraft have no registration to find a real one by), credited, and saying when only the type matched.
 - **Weather** (Layers, off by default): the real world's SIGMETs, G-AIRMETs, CWAs and PIREPs
   (`scope/hazards.py`, from aviationweather.gov), since Infinite Flight flies real-world weather.
 - **Infinite Flight's API rules** ([usage and data rules](https://infiniteflight.com/guide/developer-reference/api-rules/usage-and-data-rules))
