@@ -19,6 +19,8 @@ SITE = {
     # a flight list's lastReport is the list's time, not each position's (off by a few s, some positions repeated):
     # carry each report on from the time its distance flown implies, and draw trail dots that follow the aircraft
     "report_jitter": True, "smooth_trails": True,
+    # a pilot whose reports stop coasts on 90 s past stale_s, drawn as a guess (hollow, CST), unless low near an airport
+    "coast_s": 90,
     "start": None,                          # no airport in the URL: open on the whole globe
     "metar_label": "REAL-WORLD METAR",
 }
